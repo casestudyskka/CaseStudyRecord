@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vet Case Record</title>
+<style>
+  :root{
+    --ink:#1c2b2d; --paper:#f6f4ee; --card:#ffffff; --line:#4a463c;
+    --teal:#2f6f6b; --teal-dk:#1f4e4b; --clay:#b5583a; --amber:#c68a2e; --ok:#4c7a4f; --lbl-bg:#eeead9;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:var(--paper);}
+  body{color:var(--ink);font-family:'Segoe UI',-apple-system,'Noto Sans Myanmar','Padauk',sans-serif;}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+  .topbar{flex:0 0 auto;background:var(--teal-dk);color:#fbf8f1;padding:1.5px 8px;
+    font-size:9px;font-weight:700;text-align:center;}
+  .viewport{flex:1 1 auto;min-height:0;position:relative;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+  #canvas{position:absolute;top:0;left:0;width:430px;opacity:0;transition:opacity .18s;}
+  @media (min-width:700px){
+    #canvas{width:900px;}
+    .sections-wrap{display:flex;gap:8px;align-items:flex-start;}
+    .sections-wrap .col-a, .sections-wrap .col-b{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:6px;}
+  }
+
+  .section{border:1.4px solid var(--line);border-radius:3px;margin-bottom:4px;overflow:hidden;background:#fff;}
+  .section-head{background:linear-gradient(90deg,var(--teal),var(--teal-dk));color:#fff;
+    padding:2.5px 7px;font-size:9px;font-weight:800;letter-spacing:.3px;text-align:center;}
+  .section-head.sec-general{background:linear-gradient(90deg,#ffe599,#f4d270);color:#5c4507;}
+  .section-head.sec-history{background:linear-gradient(90deg,#93c47d,#7cb363);color:#1c3312;}
+  .section-head.sec-exam{background:linear-gradient(90deg,#ea9999,#e17d7d);color:#5c1414;}
+  .section-head.sec-analysis{background:linear-gradient(90deg,#9fc5e8,#7fb0dd);color:#0d2c47;}
+
+  table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  td{border:1px solid var(--line);padding:1px 2px;vertical-align:middle;overflow:hidden;}
+  td.lbl{font-size:6.6px;font-weight:800;color:var(--teal-dk);background:var(--lbl-bg);
+    line-height:1.02;text-transform:uppercase;letter-spacing:.1px;padding:2px 2px;}
+  td.inp{padding:0;background:#fff;}
+  td.inp input,td.inp select{display:block;width:100%;border:none;background:#fff;
+    padding:1.5px 3px;font-size:8.3px;color:var(--ink);height:16px;}
+  td.inp textarea{display:block;width:100%;border:none;background:#fff;padding:1.5px 3px;
+    font-size:8.3px;font-family:inherit;resize:vertical;min-height:15px;color:var(--ink);}
+  td.inp input:focus,td.inp select:focus,td.inp textarea:focus{outline:2px solid var(--teal);outline-offset:-2px;}
+  td.inp input.cust{margin-top:1px;border-top:1px dashed var(--line);}
+  td.inp textarea.flag-red{color:#c0392b;font-weight:700;}
+  td.inp .unit-wrap input.flag-red{color:#c0392b;font-weight:700;}
+  .hidden{display:none!important;}
+
+  .unit-wrap{display:flex;align-items:center;height:16px;}
+  .unit-wrap input{flex:1 1 auto;min-width:0;border:none;background:#fff;
+    padding:1.5px 2px;font-size:8.3px;color:var(--ink);height:16px;}
+  .unit-wrap input:focus{outline:2px solid var(--teal);outline-offset:-2px;}
+  .unit-wrap .unit{flex:0 0 auto;font-size:7px;font-weight:800;color:var(--teal-dk);
+    padding-right:3px;white-space:nowrap;}
+
+  .cell{cursor:pointer;}
+  .cell-text{padding:1.5px 4px;font-size:8.3px;min-height:16px;line-height:12px;
+    white-space:normal;overflow-wrap:break-word;word-break:break-word;color:var(--ink);
+    border-radius:3px;transition:background .1s;}
+
+  .subin{margin-top:1px;border-top:1px solid var(--line);background:#f7f5ec;}
+  .subin select{display:block;width:100%;border:none;border-top:1px dashed var(--line);
+    background:#f7f5ec;font-size:6.6px;height:14px;padding:0 2px;color:var(--ink);}
+  .subin select:first-child{border-top:none;}
+
+  .tx-add{font-size:7px;padding:1px 6px;border:1px dashed var(--teal);background:#fff;
+    color:var(--teal);border-radius:7px;font-weight:700;float:right;}
+  .tx-hd{display:flex;justify-content:space-between;align-items:center;
+    background:var(--lbl-bg);padding:2.5px 5px;font-size:7.8px;font-weight:800;color:var(--clay);}
+
+  .tx-cards{display:flex;flex-direction:column;gap:3px;padding:4px;background:#f7f5ec;}
+  .tx-card{display:flex;align-items:center;gap:3px;background:#fff;border:1px solid var(--line);
+    border-radius:4px;padding:3px 4px;flex-wrap:nowrap;overflow:hidden;}
+  .tx-card input[type="date"]{flex:0 0 58px;font-size:6.6px;font-weight:600;border:none;
+    border-right:1px solid var(--line);padding-right:2px;margin-right:1px;background:transparent;color:var(--ink);}
+  .tx-card .tx-drug{flex:1 1 44px;max-width:30%;min-width:0;border:none;border-bottom:1px dotted var(--line);
+    font-size:8px;font-weight:800;color:var(--teal-dk);background:transparent;padding:1px 2px;}
+  .tx-card .qty-mini{flex:1 1 0;min-width:0;display:flex;align-items:center;height:15px;
+    border:1px solid var(--line);border-radius:3px;background:#fff;overflow:hidden;}
+  .tx-card .qty-mini input{flex:1 1 0;min-width:0;border:none;background:transparent;
+    padding:0 2px;font-size:7.6px;height:100%;}
+  .tx-card .qty-mini .unit{flex:0 0 auto;font-size:6.4px;font-weight:800;color:var(--teal-dk);
+    padding-right:2px;white-space:nowrap;}
+  .tx-card .qty-mini select{flex:0 0 auto;max-width:32px;border:none;border-left:1px solid var(--line);
+    background:#f7f5ec;font-size:6.8px;height:100%;padding:0 1px;color:var(--ink);}
+  .tx-card .cell{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;}
+  .tx-card .cell-text{font-size:7.2px;padding:1.5px 3px;min-height:15px;line-height:12px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tx-card .cell-ctrl select{border:none;background:#fff;font-size:7px;height:15px;width:100%;}
+  .tx-card .cell-ctrl input.cust{border:none;border-top:1px dashed var(--line);
+    background:#f7f5ec;font-size:7px;height:15px;padding:0 3px;width:100%;}
+  .tx-card .rm{flex:0 0 auto;border:none;background:var(--lbl-bg);color:var(--clay);
+    font-size:9px;font-weight:800;width:14px;height:14px;border-radius:50%;line-height:1;margin-left:1px;}
+
+  .footerbar{flex:0 0 auto;background:var(--teal-dk);padding:6px 10px;display:flex;justify-content:center;}
+  .footerbar button{flex:1;border:none;border-radius:6px;padding:11px 3px;
+    font-size:14px;font-weight:800;color:#fff;}
+  #btnSave{background:#0f9d58;}
+  #btnSave:disabled{opacity:.6;}
+  #copyMsg{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:var(--ok);
+    color:#fff;padding:5px 12px;border-radius:12px;font-size:11px;opacity:0;transition:opacity .25s;
+    pointer-events:none;z-index:50;}
+  #copyMsg.show{opacity:1;}
+
+  @media print{
+    html,body{overflow:visible!important;height:auto!important;}
+    .app{height:auto!important;display:block!important;}
+    .topbar,.footerbar,#copyMsg{display:none!important;}
+    .viewport{position:static!important;overflow:visible!important;}
+    #canvas{position:static!important;transform:none!important;width:100%!important;opacity:1!important;}
+    body{background:#fff;font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">🐾 Pet World Vet Clinic — Case Record</div>
+  <div class="viewport" id="viewport">
+    <div id="canvas">
+      <div class="sections-wrap">
+      <div class="col-a">
+
+      <!-- 1. General Information -->
+      <div class="section">
+        <div class="section-head sec-general">General Information</div>
+        <table>
+          <colgroup><col width="11%"><col width="14%"><col width="11%"><col width="14%"><col width="11%"><col width="14%"><col width="11%"><col width="14%"></colgroup>
+          <tr>
+            <td class="lbl">Name</td><td class="inp"><input type="text" data-label="Pet's Name"></td>
+            <td class="lbl">Species</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Species"><option value="">--</option><option>Dog</option><option>Cat</option></select></div></div></td>
+            <td class="lbl">Age</td><td class="inp"><input type="text" data-label="Age"></td>
+            <td class="lbl">Diet</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select data-label="Diet" data-custom-target="diet-custom"><option value="">--</option><option>Kibble&amp;Wet</option><option>Home-cooked</option><option>Mix</option><option value="__custom">Custom</option></select>
+              <input id="diet-custom" class="hidden cust" type="text" data-label="Diet (Custom)">
+            </div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Visit Date</td><td class="inp"><input type="date" data-label="Visit Date"></td>
+            <td class="lbl">Breed</td><td class="inp"><input type="text" data-label="Breed"></td>
+            <td class="lbl">DOB</td><td class="inp"><input type="date" data-label="DOB"></td>
+            <td class="lbl">Environ.</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select data-label="Environment" data-custom-target="env-custom"><option value="">--</option><option>Indoor</option><option>Outdoor</option><option>Semi-Outdoor</option><option value="__custom">Custom</option></select>
+              <input id="env-custom" class="hidden cust" type="text" data-label="Environment (Custom)">
+            </div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Owner</td><td class="inp"><input type="text" data-label="Owner Name"></td>
+            <td class="lbl">Sex</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Sex"><option value="">--</option><option>Male</option><option>Female</option></select></div></div></td>
+            <td class="lbl">Repro</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Reproductive Status"><option value="">--</option><option>Intact</option><option>Neutered</option><option>Spayed</option></select></div></div></td>
+            <td class="lbl">Vaccine</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select data-label="Vaccination Status" data-custom-target="vacc-custom" data-good="Up-to-Date"><option value="">--</option><option>Up-to-Date</option><option>Overdue</option><option>Unknown</option><option value="__custom">Custom</option></select>
+              <input id="vacc-custom" class="hidden cust" type="text" data-label="Vaccination (Custom)">
+            </div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Color</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select data-label="Color" data-custom-target="color-custom"><option value="">--</option><option>Yellow</option><option>Black</option><option>White</option><option>Brown</option><option>Grey</option><option>Tricolor</option><option value="__custom">Custom</option></select>
+              <input id="color-custom" class="hidden cust" type="text" data-label="Color (Custom)">
+            </div></div></td>
+            <td class="lbl">Weight</td><td class="inp"><div class="unit-wrap"><input type="number" step="0.1" class="flag-red" data-label="Weight (kg)" data-unit="kg" oninput="this.nextElementSibling.textContent=this.value?'kg':''"><span class="unit"></span></div></td>
+            <td class="lbl">BCS</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="BCS"><option value="">--</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div></div></td>
+            <td class="lbl">Deworm</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select data-label="Deworming" data-custom-target="dew-custom" data-good="Yes"><option value="">--</option><option>Yes</option><option>No</option><option value="__custom">Custom</option></select>
+              <input id="dew-custom" class="hidden cust" type="text" data-label="Deworming (Custom)">
+            </div></div></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- 2. Chief Complaint & History -->
+      <div class="section">
+        <div class="section-head sec-history">Chief Complaint &amp; History</div>
+        <table>
+          <colgroup><col width="22%"><col width="28%"><col width="22%"><col width="28%"></colgroup>
+          <tr><td class="lbl">Chief Complaint</td><td class="inp" colspan="3"><textarea class="flag-red" data-label="Chief Complaint"></textarea></td></tr>
+          <tr>
+            <td class="lbl">Onset &amp; Duration</td><td class="inp"><input type="text" data-label="Onset & Duration"></td>
+            <td class="lbl">Past Medical Hx</td><td class="inp"><input type="text" data-label="Past Medical Record"></td>
+          </tr>
+          <tr>
+            <td class="lbl">Allergy Hx</td><td class="inp"><input type="text" data-label="Allergy Hx"></td>
+            <td class="lbl">Prev. Treatment</td><td class="inp"><input type="text" data-label="Previous Treatment"></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- 3. Systemic Review & Physical Exam -->
+      <div class="section">
+        <div class="section-head sec-exam">Systemic Review &amp; Physical Exam</div>
+        <table>
+          <colgroup><col width="11%"><col width="14%"><col width="11%"><col width="14%"><col width="11%"><col width="14%"><col width="11%"><col width="14%"></colgroup>
+          <tr>
+            <td class="lbl">Appetite</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Appetite" data-custom-target="app-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Decreased</option><option>Anorexia</option><option value="__custom">Custom</option></select><input id="app-custom" class="hidden cust" type="text" data-label="Appetite (Custom)"></div></div></td>
+            <td class="lbl">Vomit</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select id="vomit-sel" data-label="Vomit" data-custom-target="vomit-custom" data-good="No"><option value="">--</option><option>Yes</option><option>No</option><option value="__custom">Custom</option></select>
+              <input id="vomit-custom" class="hidden cust" type="text" data-label="Vomit (Custom)">
+              <div class="subin hidden" id="vomit-sub">
+                <select id="vomit-discharge" class="sub-skip"><option value="">--</option><option>No Blood</option><option>Blood</option><option>Mucus</option><option>Yellow Mucus</option><option>Brown Mucus</option></select>
+              </div>
+            </div></div></td>
+            <td class="lbl">Temp °F</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select id="temp-sel" data-label="Temperature (°F)" data-custom-target="temp-custom" data-unit="°F" data-join="concat"><option value="">--</option><option>90</option><option>91</option><option>92</option><option>93</option><option>94</option><option>95</option><option>96</option><option>97</option><option>98</option><option>99</option><option>100</option><option>101</option><option>102</option><option>103</option><option>104</option><option>105</option><option>106</option><option>107</option><option>108</option><option>109</option><option>110</option><option value="__custom">Custom</option></select>
+              <input id="temp-custom" class="hidden cust" type="text" data-label="Temperature (°F) (Custom)">
+              <div class="subin hidden" id="temp-sub">
+                <select id="temp-dec" class="sub-skip"><option value="">--</option><option>.1</option><option>.2</option><option>.3</option><option>.4</option><option>.5</option><option>.6</option><option>.7</option><option>.8</option><option>.9</option></select>
+              </div>
+            </div></div></td>
+            <td class="lbl">Pulse</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Pulse Quality" data-custom-target="pulse-custom" data-good="Normal"><option value="">--</option><option>Strong</option><option>Weak</option><option>Irregular</option><option value="__custom">Custom</option></select><input id="pulse-custom" class="hidden cust" type="text" data-label="Pulse Quality (Custom)"></div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Water</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Water Intake" data-custom-target="water-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Increased</option><option>Decreased</option><option value="__custom">Custom</option></select><input id="water-custom" class="hidden cust" type="text" data-label="Water Intake (Custom)"></div></div></td>
+
+            <td class="lbl">Stool</td>
+            <td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select id="stool-sel" data-label="Stool" data-custom-target="stool-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Diarrhea</option><option>Constipation</option><option value="__custom">Custom</option></select>
+              <input id="stool-custom" class="hidden cust" type="text" data-label="Stool (Custom)">
+              <div class="subin hidden" id="diarrhea-sub">
+                <select id="diarrhea-dur" class="sub-skip"><option value="">Days</option><option>1d</option><option>2d</option><option>3d</option><option>4d</option><option>5d</option><option>6d</option><option>7d</option><option>&gt;1wk</option><option>&gt;2wk</option></select>
+                <select id="diarrhea-blood" class="sub-skip"><option value="">Blood?</option><option>Blood</option><option>No Blood</option></select>
+                <select id="diarrhea-freq" class="sub-skip"><option value="">Freq</option><option>1x</option><option>2x</option><option>3x</option><option>4x</option><option>&gt;5x</option><option>&gt;10x</option></select>
+              </div>
+              <div class="subin hidden" id="constipation-sub">
+                <select id="constipation-dur" class="sub-skip"><option value="">Days</option><option>1d</option><option>2d</option><option>3d</option><option>4d</option><option>5d</option><option>6d</option><option>7d</option><option>&gt;1wk</option><option>&gt;2wk</option></select>
+              </div>
+            </div></div></td>
+
+            <td class="lbl">Heart Rt</td><td class="inp"><div class="unit-wrap"><input type="number" data-label="Heart Rate (bpm)" data-unit="bpm" oninput="this.nextElementSibling.textContent=this.value?'bpm':''"><span class="unit"></span></div></td>
+            <td class="lbl">Mucus</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Mucus Membrane" data-custom-target="mm-custom" data-good="Pink"><option value="">--</option><option>Pink</option><option>Pale</option><option>Icteric</option><option>Cyanotic</option><option value="__custom">Custom</option></select><input id="mm-custom" class="hidden cust" type="text" data-label="Mucus Membrane (Custom)"></div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Energy</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Energy Level" data-custom-target="energy-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Lethargic</option><option>Weak</option><option value="__custom">Custom</option></select><input id="energy-custom" class="hidden cust" type="text" data-label="Energy Level (Custom)"></div></div></td>
+
+            <td class="lbl">Urination</td>
+            <td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select id="urin-sel" data-label="Urination" data-custom-target="urin-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Dysuria</option><option>Haematuria</option><option>Polyuria</option><option value="__custom">Custom</option></select>
+              <input id="urin-custom" class="hidden cust" type="text" data-label="Urination (Custom)">
+              <div class="subin hidden" id="urin-sub">
+                <select id="urin-dur" class="sub-skip"><option value="">Days</option><option>1d</option><option>2d</option><option>3d</option><option>4d</option><option>5d</option><option>6d</option><option>7d</option><option>&gt;1wk</option><option>&gt;2wk</option></select>
+                <select id="urin-freq" class="sub-skip"><option value="">Freq</option><option>1x</option><option>2x</option><option>3x</option><option>4x</option><option>&gt;5x</option><option>&gt;10x</option></select>
+              </div>
+            </div></div></td>
+
+            <td class="lbl">Resp Rt</td><td class="inp"><div class="unit-wrap"><input type="number" data-label="Respiratory Rate" data-unit="bpm" oninput="this.nextElementSibling.textContent=this.value?'bpm':''"><span class="unit"></span></div></td>
+            <td class="lbl">CRT</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="CRT" data-custom-target="crt-custom" data-good="&lt;2 secs"><option value="">--</option><option>&lt;2 secs</option><option>&gt;2 secs</option><option value="__custom">Custom</option></select><input id="crt-custom" class="hidden cust" type="text" data-label="CRT (Custom)"></div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Skin</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Skin" data-custom-target="skin-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Itching</option><option>Lesions</option><option>Hair Loss</option><option>Itch+Lesion+Hair</option><option value="__custom">Custom</option></select><input id="skin-custom" class="hidden cust" type="text" data-label="Skin (Custom)"></div></div></td>
+
+            <td class="lbl">Resp Sign</td>
+            <td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+              <select id="resp-sel" data-label="Respiratory Signs" data-custom-target="resp-custom" data-good="None"><option value="">--</option><option>None</option><option>Coughing</option><option>Sneezing</option><option>Cough&amp;Sneeze</option><option>Dyspnea</option><option>Cough+Sneeze+Dyspnea</option><option value="__custom">Custom</option></select>
+              <input id="resp-custom" class="hidden cust" type="text" data-label="Respiratory Signs (Custom)">
+              <div class="subin hidden" id="resp-sub">
+                <select id="resp-dur" class="sub-skip"><option value="">Days ago</option><option>1d ago</option><option>2d ago</option><option>3d ago</option><option>4d ago</option><option>5d ago</option><option>6d ago</option><option>7d ago</option><option>&gt;1wk</option><option>&gt;2wk</option></select>
+                <select id="resp-discharge" class="sub-skip"><option value="">--</option><option>No Blood</option><option>Blood</option><option>Mucus</option><option>Yellow Mucus</option><option>Brown Mucus</option></select>
+              </div>
+            </div></div></td>
+
+            <td class="lbl">Lymph</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Lymph Nodes" data-custom-target="lymph-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Enlarged</option><option value="__custom">Custom</option></select><input id="lymph-custom" class="hidden cust" type="text" data-label="Lymph Nodes (Custom)"></div></div></td>
+            <td class="lbl">Hydration</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Hydration Status" data-custom-target="hyd-custom" data-good="Normal"><option value="">--</option><option>Normal</option><option>Mild(5-6%)</option><option>Moderate(7-9%)</option><option>Severe(&gt;10%)</option><option value="__custom">Custom</option></select><input id="hyd-custom" class="hidden cust" type="text" data-label="Hydration (Custom)"></div></div></td>
+          </tr>
+          <tr>
+            <td class="lbl">Pain Score</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select data-label="Pain Score"><option value="">--</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div></div></td>
+            <td class="lbl">Abnormal Findings</td><td class="inp" colspan="5"><textarea data-label="Abnormal Clinical Findings"></textarea></td>
+          </tr>
+        </table>
+      </div>
+
+      </div>
+      <div class="col-b">
+
+      <!-- 4. Case Analysis -->
+      <div class="section">
+        <div class="section-head sec-analysis">Case Analysis</div>
+        <table>
+          <colgroup><col width="16.6%"><col width="16.6%"><col width="16.6%"><col width="16.6%"><col width="16.6%"><col width="17%"></colgroup>
+          <tr><td class="lbl">Problem List</td><td class="inp" colspan="3"><textarea data-label="Master Problem List"></textarea></td>
+              <td class="lbl">Dx Results</td><td class="inp"><textarea data-label="Diagnostic Results"></textarea></td></tr>
+          <tr><td class="lbl">Differential Dx</td><td class="inp"><textarea data-label="Differential Diagnosis"></textarea></td>
+              <td class="lbl">Dx Plan</td><td class="inp"><div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+                <select data-label="Dx Plan" data-custom-target="dxplan-custom"><option value="">--</option><option>CBC</option><option>GHP</option><option>PAP</option><option>X-Ray</option><option>Ultrasound</option><option>Skin Scraping</option><option value="__custom">Custom</option></select>
+                <input id="dxplan-custom" class="hidden cust" type="text" data-label="Dx Plan (Custom)">
+              </div></div></td>
+              <td class="lbl">Final Dx</td><td class="inp"><textarea class="flag-red" data-label="Final Diagnosis"></textarea></td></tr>
+        </table>
+      </div>
+
+      <!-- 5. Treatment Plan -->
+      <div class="section">
+        <div class="section-head">Treatment Plan</div>
+        <div class="tx-hd">💉 Injection Treatment <button type="button" class="tx-add" onclick="addRow('inj')">+ add</button></div>
+        <div class="tx-cards" id="inj-rows"></div>
+        <div class="tx-hd">💊 Oral Treatment <button type="button" class="tx-add" onclick="addRow('oral')">+ add</button></div>
+        <div class="tx-cards" id="oral-rows"></div>
+        <div class="tx-hd">🧴 Topical Treatment <button type="button" class="tx-add" onclick="addRow('topical')">+ add</button></div>
+        <div class="tx-cards" id="topical-rows"></div>
+      </div>
+
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="copyMsg">Copied ✓</div>
+  <div class="footerbar">
+    <button id="btnSave">📊 Save</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+function fit(){
+  const availW = viewport.clientWidth, availH = viewport.clientHeight;
+  const naturalW = canvas.offsetWidth || 430;
+  canvas.style.transform = 'none';
+  const naturalH = canvas.scrollHeight;
+  const scale = Math.min(availW/naturalW, availH/naturalH);
+  const leftPx = Math.max(0,(availW - naturalW*scale)/2);
+  canvas.style.transformOrigin = 'top left';
+  canvas.style.transform = `scale(${scale})`;
+  canvas.style.left = leftPx + 'px';
+  canvas.style.top = '0px';
+  canvas.style.opacity = '1';
+}
+window.addEventListener('load', fit);
+let lastFitWidth = window.innerWidth;
+window.addEventListener('resize', ()=>{
+  if (window.innerWidth !== lastFitWidth) {
+    lastFitWidth = window.innerWidth;
+    fit();
+  }
+  // else: height-only change — almost always the on-screen keyboard opening/
+  // closing (common on Android), so skip re-fitting to avoid the whole form
+  // shrinking/growing while the user is typing.
+});
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{ lastFitWidth = window.innerWidth; fit(); },150));
+new ResizeObserver(()=>fit()).observe(canvas);
+
+// ---------- Custom "Other" toggle (static, id-based) ----------
+document.querySelectorAll('select[data-custom-target]').forEach(sel=>{
+  sel.addEventListener('change', ()=>{
+    const t = document.getElementById(sel.dataset.customTarget);
+    if(!t) return;
+    if(sel.value === '__custom'){ t.classList.remove('hidden'); t.focus(); }
+    else { t.classList.add('hidden'); t.value=''; }
+  });
+});
+// ---------- Custom "Other" toggle (dynamic rows, sibling-based) ----------
+function toggleCustomSibling(sel){
+  const custom = sel.nextElementSibling;
+  if(!custom) return;
+  if(sel.value === '__custom'){ custom.classList.remove('hidden'); custom.focus(); }
+  else { custom.classList.add('hidden'); custom.value=''; }
+}
+
+// ---------- Compound sub-fields reveal (Stool / Urination / Respiratory Signs) ----------
+document.getElementById('stool-sel').addEventListener('change', function(){
+  document.getElementById('diarrhea-sub').classList.toggle('hidden', this.value!=='Diarrhea');
+  document.getElementById('constipation-sub').classList.toggle('hidden', this.value!=='Constipation');
+});
+document.getElementById('urin-sel').addEventListener('change', function(){
+  const show = this.value!=='' && this.value!=='Normal' && this.value!=='__custom';
+  document.getElementById('urin-sub').classList.toggle('hidden', !show);
+});
+document.getElementById('resp-sel').addEventListener('change', function(){
+  const show = this.value!=='' && this.value!=='None' && this.value!=='__custom';
+  document.getElementById('resp-sub').classList.toggle('hidden', !show);
+});
+document.getElementById('vomit-sel').addEventListener('change', function(){
+  document.getElementById('vomit-sub').classList.toggle('hidden', this.value!=='Yes');
+});
+document.getElementById('temp-sel').addEventListener('change', function(){
+  const show = this.value!=='' && this.value!=='__custom';
+  document.getElementById('temp-sub').classList.toggle('hidden', !show);
+});
+
+// ---------- Dropdown chip colors (semantic: red = selected, green = normal/good finding) ----------
+const CHIP_DEFAULT = '#c0392b';   // red — matches the user's own dropdown color scheme
+const CHIP_GOOD    = '#1e8e3e';   // green — reserved for the clinically-normal option per field
+const COLOR_SWATCH = {            // pet Color field — themed to the actual color word
+  'Yellow':'#d4a437', 'Black':'#3a3a3a', 'White':'#e8e8e8',
+  'Brown':'#8b5a2b', 'Grey':'#8a8f96', 'Tricolor':'#7b5ea7'
+};
+function pickTextColor(hex){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  const lum = (0.299*r + 0.587*g + 0.114*b);
+  return lum > 150 ? '#2b2b2b' : '#ffffff';
+}
+function chipColorFor(select){
+  if(!select || select.value === '' || select.value === '__custom') return null;
+  if(select.dataset.label === 'Color' && COLOR_SWATCH[select.value]) return COLOR_SWATCH[select.value];
+  if(select.dataset.good && select.value === select.dataset.good) return CHIP_GOOD;
+  return CHIP_DEFAULT;
+}
+function applyChip(textEl, ctrl){
+  if(ctrl.closest('.tx-card')){ textEl.style.background=''; textEl.style.color=''; return; }
+  const mainSel = ctrl.querySelector('select:not(.sub-skip)');
+  const color = mainSel ? chipColorFor(mainSel) : null;
+  if(color){ textEl.style.background = color; textEl.style.color = pickTextColor(color); }
+  else { textEl.style.background = ''; textEl.style.color = ''; }
+}
+// ---------- Tap-to-edit cell (shows plain text; tap reveals the real control) ----------
+function computeCellText(ctrl){
+  const mainSel = ctrl.querySelector('select:not(.sub-skip)');
+  if(!mainSel) return '';
+  let val = mainSel.value;
+  const cellUnit = mainSel.dataset.unit || '';
+  if(val === '__custom'){
+    const ci = ctrl.querySelector(':scope > input.cust');
+    let txt = ci ? ci.value.trim() : '';
+    const suf = mainSel.dataset.suffix;
+    if(txt && suf && !txt.toLowerCase().endsWith(suf.toLowerCase())) txt = txt + ' ' + suf;
+    return txt;
+  }
+  const subins = ctrl.querySelectorAll(':scope > .subin:not(.hidden)');
+  if(subins.length && val && val!=='Normal' && val!=='None'){
+    let parts=[val];
+    subins.forEach(si=> si.querySelectorAll('select').forEach(s=>{ if(s.value) parts.push(s.value); }));
+    if(parts.length>1) return parts.join(mainSel.dataset.join==='concat' ? '' : '/') + cellUnit;
+  }
+  return val ? val + cellUnit : val;
+}
+function setupCell(cell){
+  if(cell.dataset.wired) return;
+  cell.dataset.wired = '1';
+  const textEl = cell.querySelector(':scope > .cell-text');
+  const ctrl = cell.querySelector(':scope > .cell-ctrl');
+  if(!textEl || !ctrl) return;
+  function openEdit(){
+    ctrl.classList.remove('hidden'); textEl.classList.add('hidden');
+    const f = ctrl.querySelector('select,input'); if(f) f.focus();
+    requestAnimationFrame(fit);
+  }
+  function closeEdit(){
+    textEl.textContent = computeCellText(ctrl);
+    applyChip(textEl, ctrl);
+    ctrl.classList.add('hidden'); textEl.classList.remove('hidden');
+    requestAnimationFrame(fit);
+  }
+  textEl.addEventListener('click', openEdit);
+  cell.addEventListener('focusout', ()=>{
+    setTimeout(()=>{ if(!cell.contains(document.activeElement)) closeEdit(); }, 60);
+  });
+  closeEdit();
+}
+function wireAllCells(root){ (root||document).querySelectorAll('.cell').forEach(setupCell); }
+
+// ---------- Treatment rows (card layout) ----------
+function cellHTML(selectHTML, customPlaceholder, selClass, custClass, suffix){
+  return `<div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden">
+    <select class="${selClass||''}" ${suffix?`data-suffix="${suffix}"`:''} onchange="toggleCustomSibling(this)">${selectHTML}</select>
+    <input type="text" class="hidden cust ${custClass||''}" placeholder="${customPlaceholder||'Custom'}">
+  </div></div>`;
+}
+function plainCellHTML(selectHTML, selClass){
+  return `<div class="cell"><div class="cell-text"></div><div class="cell-ctrl hidden"><select class="${selClass||''}">${selectHTML}</select></div></div>`;
+}
+const FREQ_OPTIONS = '<option value="">--</option><option>OD</option><option>BID</option><option>TID</option><option>QID</option>';
+const ML_OPTIONS = '<option value="">--</option><option value="__custom">Custom</option>' +
+  Array.from({length:100}, (_,i)=>((i+1)/10).toFixed(1)).map(v=>`<option value="${v} ml">${v} ml</option>`).join('');
+const TIMES_OPTIONS = '<option value="">--</option>' +
+  ['1 day','2 days','3 days','4 days','5 days','6 days','1 week','2 weeks','3 weeks','4 weeks']
+    .map(v=>`<option>${v}</option>`).join('');
+function addRow(type){
+  const card = document.createElement('div');
+  card.className = 'tx-card';
+  if(type==='inj'){
+    card.innerHTML = `
+      <input type="date" class="inj-date">
+      <input type="text" placeholder="Drug name" class="tx-drug inj-drug">
+      ${cellHTML(ML_OPTIONS,'e.g. 0.75','inj-dose-ml','inj-dose-ml-custom','ml')}
+      <div class="qty-mini"><input type="number" step="0.1" placeholder="mg" class="inj-dose-mg" oninput="this.nextElementSibling.textContent=this.value?'mg':''"><span class="unit"></span></div>
+      ${cellHTML('<option value="">--</option><option>IM</option><option>IV</option><option>SC</option><option>SQ</option><option value="__custom">Custom</option>','Custom route','inj-route','inj-route-custom')}
+      <button type="button" class="rm" onclick="this.closest('.tx-card').remove()">✕</button>`;
+    document.getElementById('inj-rows').appendChild(card);
+  } else if(type==='oral'){
+    card.innerHTML = `
+      <input type="date" class="oral-date">
+      <input type="text" placeholder="Drug" class="tx-drug oral-drug">
+      <div class="qty-mini"><input type="text" placeholder="Dose" class="oral-dose">
+        <select class="oral-unit"><option value="">--</option><option>mg</option><option>ml</option><option>tab</option><option>pack</option></select>
+      </div>
+      ${plainCellHTML(FREQ_OPTIONS,'oral-freq')}
+      ${plainCellHTML(TIMES_OPTIONS,'oral-times')}
+      <button type="button" class="rm" onclick="this.closest('.tx-card').remove()">✕</button>`;
+    document.getElementById('oral-rows').appendChild(card);
+  } else {
+    card.innerHTML = `
+      <input type="date" class="top-date">
+      <input type="text" placeholder="Drug name" class="tx-drug top-drug">
+      ${plainCellHTML(FREQ_OPTIONS,'top-freq')}
+      ${plainCellHTML(TIMES_OPTIONS,'top-times')}
+      <button type="button" class="rm" onclick="this.closest('.tx-card').remove()">✕</button>`;
+    document.getElementById('topical-rows').appendChild(card);
+  }
+  wireAllCells(card);
+}
+addRow('inj'); addRow('oral'); addRow('topical');
+wireAllCells(document);
+fit();
+
+// ---------- Summary / Copy ----------
+// Shared: read one label+value table cell exactly the way it's shown on screen
+// (reuses computeCellText/chipColorFor so summary, sheet-copy, and the on-screen
+// chip are always guaranteed to agree).
+function extractField(labelTd){
+  const label = labelTd.textContent.trim();
+  const valueTd = labelTd.nextElementSibling;
+  if(!valueTd) return null;
+  const cellDiv = valueTd.querySelector(':scope > .cell');
+  if(cellDiv){
+    const ctrl = cellDiv.querySelector(':scope > .cell-ctrl');
+    const mainSel = ctrl.querySelector('select:not(.sub-skip)');
+    const lbl = (mainSel && mainSel.dataset.label) || label;
+    if(!mainSel || !mainSel.value) return {label: lbl, value: ''};
+    const text = computeCellText(ctrl);
+    const field = {label: lbl, value: text || ''};
+    const c = chipColorFor(mainSel);
+    if(c && text) field.bg = c;
+    return field;
+  }
+  const el = valueTd.querySelector('[data-label]');
+  if(!el) return null;
+  const lbl = el.dataset.label || label;
+  const val = el.value;
+  if(!val || !val.trim() || val === '__custom') return {label: lbl, value: ''};
+  const unit = el.dataset.unit || '';
+  const field = {label: lbl, value: val + unit};
+  if(el.classList.contains('flag-red')) field.textColor = '#c0392b';
+  return field;
+}
+
+function buildSummary(){
+  let lines = [];
+  document.querySelectorAll('.section').forEach(sec=>{
+    const title = sec.querySelector('.section-head').textContent.trim();
+    if(title === 'Treatment Plan') return;
+    let secLines = [];
+    sec.querySelectorAll('tr').forEach(tr=>{
+      tr.querySelectorAll(':scope > td.lbl').forEach(labelTd=>{
+        const field = extractField(labelTd);
+        if(field) secLines.push(`${field.label}: ${field.value}`);
+      });
+    });
+    if(secLines.length){ lines.push(`\n== ${title} ==`); lines.push(...secLines); }
+  });
+
+  const inj = Array.from(document.querySelectorAll('#inj-rows .tx-card')).map(r=>{
+    const d=r.querySelector('.inj-drug').value;
+    const date=r.querySelector('.inj-date').value;
+    let doseMl=r.querySelector('.inj-dose-ml')?.value || ''; if(doseMl==='__custom'){ doseMl=(r.querySelector('.inj-dose-ml-custom')?.value||'').trim(); if(doseMl && !/ml$/i.test(doseMl)) doseMl+=' ml'; }
+    const doseMg=r.querySelector('.inj-dose-mg').value;
+    let route=r.querySelector('.inj-route')?.value || ''; if(route==='__custom') route=r.querySelector('.inj-route-custom')?.value||'';
+    const doseParts=[doseMl, doseMg?doseMg+'mg':''].filter(Boolean).join('/');
+    return d ? `${date?date+' - ':''}${d}${doseParts? ' - '+doseParts:''}${route? ' ('+route+')':''}` : null;
+  }).filter(Boolean);
+  const oral = Array.from(document.querySelectorAll('#oral-rows .tx-card')).map(r=>{
+    const d=r.querySelector('.oral-drug').value, date=r.querySelector('.oral-date').value, dose=r.querySelector('.oral-dose').value,
+          unit=r.querySelector('.oral-unit')?.value, freq=r.querySelector('.oral-freq')?.value, times=r.querySelector('.oral-times')?.value;
+    return d ? `${date?date+' - ':''}${d} - ${dose||''}${unit||''} ${freq||''} for ${times||''}`.replace(/\s+/g,' ').trim() : null;
+  }).filter(Boolean);
+  const topical = Array.from(document.querySelectorAll('#topical-rows .tx-card')).map(r=>{
+    const d=r.querySelector('.top-drug').value, date=r.querySelector('.top-date').value,
+          freq=r.querySelector('.top-freq')?.value, times=r.querySelector('.top-times')?.value;
+    return d ? `${date?date+' - ':''}${d} - ${freq||''} for ${times||''}`.replace(/\s+/g,' ').trim() : null;
+  }).filter(Boolean);
+
+  if(inj.length || oral.length || topical.length){
+    lines.push('\n== Treatment Plan ==');
+    if(inj.length){ lines.push('Injection:'); inj.forEach(t=>lines.push('  - '+t)); }
+    if(oral.length){ lines.push('Oral:'); oral.forEach(t=>lines.push('  - '+t)); }
+    if(topical.length){ lines.push('Topical:'); topical.forEach(t=>lines.push('  - '+t)); }
+  }
+  return lines.join('\n').trim();
+}
+
+function buildStructuredData(){
+  const sections = [];
+  document.querySelectorAll('.section').forEach(sec=>{
+    const title = sec.querySelector('.section-head').textContent.trim();
+    if(title === 'Treatment Plan') return;
+    const rows = [];
+    sec.querySelectorAll('tr').forEach(tr=>{
+      const pairs = [];
+      tr.querySelectorAll(':scope > td.lbl').forEach(labelTd=>{
+        const field = extractField(labelTd);
+        if(field) pairs.push(field);
+      });
+      if(pairs.length) rows.push(pairs);
+    });
+    sections.push({title, rows});
+  });
+
+  const inj = Array.from(document.querySelectorAll('#inj-rows .tx-card')).map(r=>{
+    const drug = r.querySelector('.inj-drug').value; if(!drug) return null;
+    let route = r.querySelector('.inj-route')?.value || ''; if(route==='__custom') route = r.querySelector('.inj-route-custom')?.value || '';
+    let doseMl = r.querySelector('.inj-dose-ml')?.value || ''; if(doseMl==='__custom'){ doseMl=(r.querySelector('.inj-dose-ml-custom')?.value||'').trim(); if(doseMl && !/ml$/i.test(doseMl)) doseMl+=' ml'; }
+    return { date:r.querySelector('.inj-date').value, drug, doseMl, doseMg:r.querySelector('.inj-dose-mg').value, route };
+  }).filter(Boolean);
+  const oral = Array.from(document.querySelectorAll('#oral-rows .tx-card')).map(r=>{
+    const drug = r.querySelector('.oral-drug').value; if(!drug) return null;
+    return { date:r.querySelector('.oral-date').value, drug, dose:r.querySelector('.oral-dose').value, unit:r.querySelector('.oral-unit')?.value||'',
+      freq:r.querySelector('.oral-freq')?.value||'', times:r.querySelector('.oral-times')?.value||'' };
+  }).filter(Boolean);
+  const topical = Array.from(document.querySelectorAll('#topical-rows .tx-card')).map(r=>{
+    const drug = r.querySelector('.top-drug').value; if(!drug) return null;
+    return { date:r.querySelector('.top-date').value, drug, freq:r.querySelector('.top-freq')?.value||'', times:r.querySelector('.top-times')?.value||'' };
+  }).filter(Boolean);
+
+  let petName='', finalDx='';
+  document.querySelectorAll('[data-label]').forEach(el=>{
+    if(el.dataset.label === "Pet's Name") petName = el.value.trim();
+    if(el.dataset.label === "Final Diagnosis") finalDx = el.value.trim();
+  });
+
+  return { petName, finalDx, sections, treatment:{ injection:inj, oral, topical } };
+}
+
+function resetForm(){
+  document.querySelectorAll('input, textarea').forEach(el=>{ if(el.type!=='button') el.value=''; });
+  document.querySelectorAll('select').forEach(el=> el.selectedIndex = 0);
+  document.querySelectorAll('.cust').forEach(el=> el.classList.add('hidden'));
+  document.querySelectorAll('.subin').forEach(el=> el.classList.add('hidden'));
+  document.querySelectorAll('.cell-text').forEach(el=>{ el.textContent=''; el.style.background=''; el.style.color=''; });
+  ['inj-rows','oral-rows','topical-rows'].forEach(id=> document.getElementById(id).innerHTML='');
+  addRow('inj'); addRow('oral'); addRow('topical');
+  fit();
+}
+
+// ---------- Save to Google Sheets ----------
+const SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx3h6ZYK4CY60LKffux1rxj9KVihn7oe0WnaCww2AlUGYp6eiMg0jM0pTDC1TwxcPaL6g/exec'; // paste your deployed Apps Script Web App URL here (see Code.gs)
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const msg = document.getElementById('copyMsg');
+  function toast(text, ms){ msg.textContent = text; msg.classList.add('show'); setTimeout(()=>msg.classList.remove('show'), ms||1800); }
+  if(!SHEETS_WEBAPP_URL){ toast('⚠️ Sheets URL မထည့်ရသေးပါ — Code.gs setup လုပ်ပါ', 2600); return; }
+  const data = buildStructuredData();
+  if(!data.petName && !data.finalDx){ toast('⚠️ Pet Name (သို့) Final Dx အနည်းဆုံးထည့်ပါ', 2200); return; }
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true; toast('⏳ Saving…', 60000);
+  fetch(SHEETS_WEBAPP_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(data) })
+    .then(r=>r.json())
+    .then(res=>{
+      btn.disabled = false;
+      if(res && res.ok){ toast('✅ Saved: '+res.sheetName+' — form cleared', 3200); resetForm(); }
+      else { toast('❌ Save မအောင်မြင်ပါ: '+(res&&res.error?res.error:'unknown'), 3000); }
+    })
+    .catch(()=>{ btn.disabled = false; toast('❌ Network error — URL/deploy setting စစ်ပါ', 3000); });
+});
+</script>
+</body>
+</html>
